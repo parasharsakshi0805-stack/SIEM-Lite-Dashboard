@@ -8,11 +8,30 @@ const COLORS = ['#22c55e', '#eab308', '#f97316', '#ef4444'];
 function App() {
   const [stats, setStats] = useState(null);
   const [logs, setLogs] = useState([]);
+  const [severity, setSeverity] = useState('');
+  const [eventType, setEventType] = useState('');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     axios.get(`${API_URL}/logs/stats`).then((res) => setStats(res.data));
-    axios.get(`${API_URL}/logs?limit=20`).then((res) => setLogs(res.data));
   }, []);
+
+  useEffect(() => {
+    const params = { limit: 50 };
+    if (severity) params.severity = severity;
+    if (event_type_safe(eventType)) params.event_type = eventType;
+
+    axios.get(`${API_URL}/logs`, { params }).then((res) => setLogs(res.data));
+  }, [severity, eventType]);
+
+  function event_type_safe(val) {
+    return val && val.length > 0;
+  }
+
+  const filteredLogs = logs.filter((log) =>
+    log.raw_message.toLowerCase().includes(search.toLowerCase()) ||
+    log.source_ip.includes(search)
+  );
 
   if (!stats) return <div style={{ padding: 20 }}>Loading...</div>;
 
@@ -50,7 +69,35 @@ function App() {
         </BarChart>
       </ResponsiveContainer>
 
-      <h2>Recent Logs</h2>
+      <h2>Logs</h2>
+
+      <div style={{ display: 'flex', gap: 10, marginBottom: 15 }}>
+        <select value={severity} onChange={(e) => setSeverity(e.target.value)}>
+          <option value="">All Severities</option>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+          <option value="critical">Critical</option>
+        </select>
+
+        <select value={eventType} onChange={(e) => setEventType(e.target.value)}>
+          <option value="">All Event Types</option>
+          <option value="login_attempt">Login Attempt</option>
+          <option value="file_access">File Access</option>
+          <option value="port_scan">Port Scan</option>
+          <option value="malware_alert">Malware Alert</option>
+          <option value="config_change">Config Change</option>
+        </select>
+
+        <input
+          type="text"
+          placeholder="Search message or IP..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ flex: 1, padding: 5 }}
+        />
+      </div>
+
       <table border="1" cellPadding="6" style={{ borderCollapse: 'collapse', width: '100%' }}>
         <thead>
           <tr>
@@ -62,7 +109,7 @@ function App() {
           </tr>
         </thead>
         <tbody>
-          {logs.map((log) => (
+          {filteredLogs.map((log) => (
             <tr key={log.id}>
               <td>{new Date(log.timestamp).toLocaleString()}</td>
               <td>{log.source_ip}</td>
