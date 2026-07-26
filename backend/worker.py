@@ -1,15 +1,26 @@
 ﻿import json
 import time
-from datetime import datetime
+import pandas as pd
+import joblib
+import os
 from database import SessionLocal
 from models import Log, Anomaly
 from redis_client import redis_client
 from detector import SlidingWindowDetector
+from ml_features import extract_features
 
 BATCH_SIZE = 50
 FLUSH_INTERVAL = 5  # seconds
+MODEL_PATH = "isolation_forest_model.joblib"
 
 detector = SlidingWindowDetector(window_seconds=60, threshold=10)
+
+ml_model = None
+if os.path.exists(MODEL_PATH):
+    ml_model = joblib.load(MODEL_PATH)
+    print("ML model loaded.")
+else:
+    print("WARNING: No ML model found. Run train_model.py first. ML scoring disabled.")
 
 def flush_batch():
     db = SessionLocal()
@@ -27,6 +38,8 @@ def flush_batch():
             print(f"Flushed {len(logs_to_insert)} logs to Postgres")
 
             check_anomalies(db, logs_to_insert)
+            if ml_model is not None:
+                check_ml_anomalies(db, logs_to_insert)
     finally:
         db.close()
 
@@ -46,7 +59,32 @@ def check_anomalies(db, logs):
     if anomalies_found:
         db.bulk_insert_mappings(Anomaly, anomalies_found)
         db.commit()
-        print(f"Flagged {len(anomalies_found)} anomalies")
+        print(f"Flagged {len(anomalies_found)} sliding-window anomalies")
+
+def check_ml_anomalies(db, logs):
+    df = pd.DataFrame(logs)
+    df["id"] = range(len(df))  # dummy id for grouping within this batch
+    df["timestamp"] = pd.Timestamp.utcnow()
+
+    features = extract_features(df)
+    predictions = ml_model.predict(features)  # -1 = anomaly, 1 = normal
+    scores = ml_model.decision_function(features)  # lower = more anomalous
+
+    anomalies_found = []
+    for i, pred in enumerate(predictions):
+        if pred == -1:
+            anomalies_found.append({
+                "log_id": None,
+                "source_ip": logs[i]["source_ip"],
+                "reason": "Flagged by Isolation Forest (unusual pattern)",
+                "score": int(scores[i] * -100),  # scaled for readability
+                "source": "ml",
+            })
+
+    if anomalies_found:
+        db.bulk_insert_mappings(Anomaly, anomalies_found)
+        db.commit()
+        print(f"Flagged {len(anomalies_found)} ML anomalies")
 
 if __name__ == "__main__":
     print("Worker started. Flushing every", FLUSH_INTERVAL, "seconds...")
