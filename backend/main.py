@@ -10,6 +10,7 @@ from models import Log
 from schemas import LogCreate, LogResponse
 from redis_client import redis_client
 from fastapi.middleware.cors import CORSMiddleware
+from models import Log, Anomaly
 
 Base.metadata.create_all(bind=engine)
 
@@ -90,3 +91,18 @@ def get_logs_stats(db: Session = Depends(get_db)):
         "event_type_breakdown": [{"event_type": e, "count": c} for e, c in event_type_counts],
         "top_source_ips": [{"ip": ip, "count": c} for ip, c in top_ips],
     }
+
+@app.get("/anomalies")
+def get_anomalies(limit: int = 50, db: Session = Depends(get_db)):
+    anomalies = db.query(Anomaly).order_by(desc(Anomaly.timestamp)).limit(limit).all()
+    return [
+        {
+            "id": a.id,
+            "source_ip": a.source_ip,
+            "reason": a.reason,
+            "score": a.score,
+            "source": a.source,
+            "timestamp": a.timestamp,
+        }
+        for a in anomalies
+    ]

@@ -12,3 +12,14 @@ class Log(Base):
     severity = Column(String, index=True)
     raw_message = Column(Text)
     tenant_id = Column(String, index=True, default="default")
+
+class Anomaly(Base):
+    __tablename__ = "anomalies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    log_id = Column(Integer, index=True)
+    source_ip = Column(String, index=True)
+    reason = Column(String)
+    score = Column(Integer)
+    source = Column(String, default="sliding_window")
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())

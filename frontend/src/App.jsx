@@ -11,10 +11,12 @@ function App() {
   const [severity, setSeverity] = useState('');
   const [eventType, setEventType] = useState('');
   const [search, setSearch] = useState('');
+  const [anomalies, setAnomalies] = useState([]);
 
   useEffect(() => {
-    axios.get(`${API_URL}/logs/stats`).then((res) => setStats(res.data));
-  }, []);
+  axios.get(`${API_URL}/logs/stats`).then((res) => setStats(res.data));
+  axios.get(`${API_URL}/anomalies`).then((res) => setAnomalies(res.data));
+}, []);
 
   useEffect(() => {
     const params = { limit: 50 };
@@ -69,7 +71,35 @@ function App() {
         </BarChart>
       </ResponsiveContainer>
 
-      <h2>Logs</h2>
+      <h2>Anomalies ({anomalies.length})</h2>
+{anomalies.length === 0 ? (
+  <p>No anomalies detected.</p>
+) : (
+  <table border="1" cellPadding="6" style={{ borderCollapse: 'collapse', width: '100%', marginBottom: 20 }}>
+    <thead>
+      <tr>
+        <th>Timestamp</th>
+        <th>Source IP</th>
+        <th>Reason</th>
+        <th>Score</th>
+        <th>Detector</th>
+      </tr>
+    </thead>
+    <tbody>
+      {anomalies.map((a) => (
+        <tr key={a.id}>
+          <td>{new Date(a.timestamp).toLocaleString()}</td>
+          <td>{a.source_ip}</td>
+          <td>{a.reason}</td>
+          <td>{a.score}</td>
+          <td>{a.source}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+)}
+
+<h2>Logs</h2>
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 15 }}>
         <select value={severity} onChange={(e) => setSeverity(e.target.value)}>
