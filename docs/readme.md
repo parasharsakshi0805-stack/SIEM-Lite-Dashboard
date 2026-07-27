@@ -48,6 +48,11 @@ Client / Log Source
 - Live dashboard: severity breakdown, event type breakdown, filterable/searchable log table, anomaly feed
 - See [docs/detector-comparison.md](docs/detector-comparison.md) for design rationale behind using two detection methods
 
+## Screenshots
+
+![Dashboard overview](docs/screenshots/dashboard.png)
+![Anomalies detected](docs/screenshots/anomalies.png)
+
 ## Setup
 
 ### Prerequisites
