@@ -57,12 +57,31 @@ Client / Log Source
 
 ### Prerequisites
 
-- Python 3.11+
-- Node.js (LTS)
-- PostgreSQL
-- Docker Desktop (for Redis)
+- Docker Desktop (recommended for running the full stack)
+- (Optional, for manual setup) Python 3.11+, Node.js (LTS), PostgreSQL
 
-### Backend
+### Running with Docker Compose (Recommended)
+
+The easiest way to run the entire stack (Database, Redis, Backend, Worker, Frontend) is using Docker Compose.
+
+Create a `.env` file in the root directory (where `docker-compose.yml` is) with the following variables:
+
+```
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your_secure_password
+POSTGRES_DB=siem_lite
+DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+```
+
+Then, run the stack:
+
+```bash
+docker-compose up --build -d
+```
+
+Visit `http://localhost:5173` to view the dashboard. The API will be available at `http://localhost:8000`.
+
+### Manual Local Setup
 
 ```bash
 cd backend
