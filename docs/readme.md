@@ -50,9 +50,10 @@ Client / Log Source
 
 ## Screenshots
 
-![Dashboard overview](docs/screenshots/dashboard-overview.png)
-![Anomalies detected](docs/screenshots/anomalies-detected.png)
-![System Logs](docs/screenshots/system-logs.png)
+
+![Dashboard overview](screenshots/dashboard-overview.png)
+![Anomalies detected](screenshots/anomalies-detected.png)
+![System Logs](screenshots/system-logs.png)
 
 
 ## Setup
