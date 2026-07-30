@@ -1,8 +1,9 @@
-﻿import json
+import json
 import time
 import pandas as pd
 import joblib
 import os
+from datetime import datetime
 from database import SessionLocal
 from models import Log, Anomaly
 from redis_client import redis_client
@@ -46,7 +47,13 @@ def flush_batch():
 def check_anomalies(db, logs):
     anomalies_found = []
     for log in logs:
-        result = detector.check_event(log["source_ip"])
+        event_time = datetime.fromisoformat(log["timestamp"]) if "timestamp" in log else datetime.utcnow()
+        # If timestamp is naive or aware, fromisoformat handles it in 3.11+. 
+        # But to be safe if 'Z' is used, replace 'Z' with '+00:00'
+        if isinstance(log.get("timestamp"), str) and log["timestamp"].endswith("Z"):
+            event_time = datetime.fromisoformat(log["timestamp"].replace("Z", "+00:00"))
+        
+        result = detector.check_event(log["source_ip"], event_time=event_time)
         if result["is_anomaly"]:
             anomalies_found.append({
                 "log_id": None,
