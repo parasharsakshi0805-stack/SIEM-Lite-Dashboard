@@ -93,12 +93,7 @@ venv\Scripts\activate        # Windows
 pip install -r requirements.txt
 ```
 
-Create a `.env` file in `backend/`:
 
-```
-DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/siem_lite
-REDIS_URL=redis://localhost:6379/0
-```
 
 Create the database:
 

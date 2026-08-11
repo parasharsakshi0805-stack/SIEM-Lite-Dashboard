@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import Navbar from './components/Navbar';
 import Overview from './pages/Overview';
 import Anomalies from './pages/Anomalies';
 import Logs from './pages/Logs';
+import Login from './pages/Login';
 import './App.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
@@ -14,8 +15,15 @@ function App() {
   const [anomalies, setAnomalies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
+    // Only fetch data if authenticated
+    if (!isAuthenticated) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     Promise.all([
       axios.get(`${API_URL}/logs/stats`),
@@ -31,9 +39,9 @@ function App() {
         console.error(err);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [isAuthenticated]);
 
-  if (loading && !stats) {
+  if (loading && !stats && isAuthenticated) {
     return (
       <div className="loading-container">
         <div className="spinner"></div>
@@ -45,9 +53,9 @@ function App() {
   return (
     <Router>
       <div className="dashboard-container">
-        <Navbar />
+        {isAuthenticated && <Navbar />}
         
-        {error && (
+        {error && isAuthenticated && (
           <div className="error-banner">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10"></circle>
@@ -58,11 +66,26 @@ function App() {
           </div>
         )}
 
-        <div className="page-wrapper">
+        <div className={isAuthenticated ? "page-wrapper" : ""}>
           <Routes>
-            <Route path="/" element={<Overview stats={stats} />} />
-            <Route path="/anomalies" element={<Anomalies anomalies={anomalies} />} />
-            <Route path="/logs" element={<Logs />} />
+            <Route 
+              path="/login" 
+              element={
+                isAuthenticated ? <Navigate to="/" /> : <Login onLogin={() => setIsAuthenticated(true)} />
+              } 
+            />
+            <Route 
+              path="/" 
+              element={isAuthenticated ? <Overview stats={stats} /> : <Navigate to="/login" />} 
+            />
+            <Route 
+              path="/anomalies" 
+              element={isAuthenticated ? <Anomalies anomalies={anomalies} /> : <Navigate to="/login" />} 
+            />
+            <Route 
+              path="/logs" 
+              element={isAuthenticated ? <Logs /> : <Navigate to="/login" />} 
+            />
           </Routes>
         </div>
       </div>
