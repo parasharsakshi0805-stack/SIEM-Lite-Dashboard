@@ -1,18 +1,41 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '../api';
 import './Login.css';
 
 const Login = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Simulate authentication check
-    if (username && password) {
+    setError(null);
+    setSubmitting(true);
+
+    // FastAPI's OAuth2PasswordRequestForm expects form-urlencoded data,
+    // not JSON — same format we tested with curl.
+    const body = new URLSearchParams();
+    body.append('username', username);
+    body.append('password', password);
+
+    try {
+      const res = await api.post('/auth/login', body, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      });
+      localStorage.setItem('access_token', res.data.access_token);
       onLogin();
       navigate('/');
+    } catch (err) {
+      if (err.response && err.response.status === 401) {
+        setError('Incorrect username or password.');
+      } else {
+        setError('Unable to reach the server. Is the backend running?');
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -34,6 +57,12 @@ const Login = ({ onLogin }) => {
             Secure Connection
           </div>
         </div>
+
+        {error && (
+          <div className="login-error" role="alert">
+            {error}
+          </div>
+        )}
         
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="form-group">
@@ -66,8 +95,8 @@ const Login = ({ onLogin }) => {
             </div>
           </div>
           
-          <button type="submit" className="login-button">
-            <span>Sign In</span>
+          <button type="submit" className="login-button" disabled={submitting}>
+            <span>{submitting ? 'Signing In...' : 'Sign In'}</span>
           </button>
         </form>
       </div>

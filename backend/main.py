@@ -1,15 +1,17 @@
-from fastapi import FastAPI, Depends, Query
+﻿from fastapi import FastAPI, Depends, Query, HTTPException
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 from typing import List, Optional
 from datetime import datetime
 import json
 
-from database import SessionLocal, engine, Base
-from schemas import LogCreate, LogResponse
+from database import SessionLocal, engine, Base, get_db
+from schemas import LogCreate, LogResponse, Token, UserOut
 from redis_client import redis_client
 from fastapi.middleware.cors import CORSMiddleware
-from models import Log, Anomaly
+from models import Log, Anomaly, User
+from auth import authenticate_user, create_access_token, get_current_user
 
 import os
 
@@ -22,29 +24,40 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
 
-from fastapi import HTTPException
+
+@app.post("/auth/login", response_model=Token)
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token = create_access_token(data={"sub": user.username})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@app.get("/auth/me", response_model=UserOut)
+def read_me(current_user: User = Depends(get_current_user)):
+    return current_user
+
 
 @app.post("/logs/ingest")
-def ingest_log(log: LogCreate):
+def ingest_log(log: LogCreate, current_user: User = Depends(get_current_user)):
     try:
         redis_client.rpush("log_queue", json.dumps(log.model_dump()))
         return {"status": "queued"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to queue log: {str(e)}")
 
+
 @app.post("/logs/ingest/batch")
-def ingest_logs_batch(logs: List[LogCreate]):
+def ingest_logs_batch(logs: List[LogCreate], current_user: User = Depends(get_current_user)):
     try:
         pipe = redis_client.pipeline()
         for log in logs:
@@ -54,6 +67,7 @@ def ingest_logs_batch(logs: List[LogCreate]):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to queue logs: {str(e)}")
 
+
 @app.get("/logs", response_model=List[LogResponse])
 def get_logs(
     skip: int = 0,
@@ -61,6 +75,7 @@ def get_logs(
     severity: Optional[str] = None,
     event_type: Optional[str] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     query = db.query(Log)
     if severity:
@@ -70,8 +85,9 @@ def get_logs(
     logs = query.order_by(desc(Log.timestamp)).offset(skip).limit(limit).all()
     return logs
 
+
 @app.get("/logs/stats")
-def get_logs_stats(db: Session = Depends(get_db)):
+def get_logs_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     severity_counts = (
         db.query(Log.severity, func.count(Log.id))
         .group_by(Log.severity)
@@ -98,8 +114,9 @@ def get_logs_stats(db: Session = Depends(get_db)):
         "top_source_ips": [{"ip": ip, "count": c} for ip, c in top_ips],
     }
 
+
 @app.get("/anomalies")
-def get_anomalies(limit: int = 50, db: Session = Depends(get_db)):
+def get_anomalies(limit: int = 50, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     anomalies = db.query(Anomaly).order_by(desc(Anomaly.timestamp)).limit(limit).all()
     return [
         {
