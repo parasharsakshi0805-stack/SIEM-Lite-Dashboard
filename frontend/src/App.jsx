@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import axios from 'axios';
+import api from './api';
 import Navbar from './components/Navbar';
 import Overview from './pages/Overview';
 import Anomalies from './pages/Anomalies';
@@ -8,14 +8,22 @@ import Logs from './pages/Logs';
 import Login from './pages/Login';
 import './App.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-
 function App() {
   const [stats, setStats] = useState(null);
   const [anomalies, setAnomalies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // Consider the user authenticated if a token is present. It might still
+  // be expired — the first API call will 401, and api.js's interceptor
+  // will clear it and redirect to /login automatically.
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    !!localStorage.getItem('access_token')
+  );
+
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    setIsAuthenticated(false);
+  };
 
   useEffect(() => {
     // Only fetch data if authenticated
@@ -26,9 +34,10 @@ function App() {
 
     setLoading(true);
     Promise.all([
-      axios.get(`${API_URL}/logs/stats`),
-      axios.get(`${API_URL}/anomalies`)
+      api.get('/logs/stats'),
+      api.get('/anomalies')
     ])
+
       .then(([statsRes, anomaliesRes]) => {
         setStats(statsRes.data);
         setAnomalies(anomaliesRes.data);
@@ -53,7 +62,7 @@ function App() {
   return (
     <Router>
       <div className="dashboard-container">
-        {isAuthenticated && <Navbar />}
+        {isAuthenticated && <Navbar onLogout={handleLogout} />}
         
         {error && isAuthenticated && (
           <div className="error-banner">

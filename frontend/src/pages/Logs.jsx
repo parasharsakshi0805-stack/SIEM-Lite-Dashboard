@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+import api from '../api';
 
 export default function Logs() {
   const [logs, setLogs] = useState([]);
@@ -15,7 +13,7 @@ export default function Logs() {
     if (severity) params.severity = severity;
     if (eventType && eventType.length > 0) params.event_type = eventType;
 
-    axios.get(`${API_URL}/logs`, { params })
+    api.get('/logs', { params })
       .then((res) => setLogs(res.data))
       .catch((err) => {
         console.error("Failed to fetch filtered logs:", err);
