@@ -1,8 +1,18 @@
-﻿import random
+﻿import getpass
+import random
 import requests
 from datetime import datetime
 
-API_URL = "http://127.0.0.1:8000/logs/ingest/batch"
+BASE_URL = "http://127.0.0.1:8000"
+API_URL = f"{BASE_URL}/logs/ingest/batch"
+
+
+def get_token():
+    username = input("Username: ")
+    password = getpass.getpass("Password: ")
+    resp = requests.post(f"{BASE_URL}/auth/login", data={"username": username, "password": password})
+    resp.raise_for_status()
+    return resp.json()["access_token"]
 
 EVENT_TYPES = ["login_attempt", "file_access", "port_scan", "malware_alert", "config_change"]
 SEVERITIES = ["low", "medium", "high", "critical"]
@@ -23,7 +33,8 @@ def generate_logs(n=100):
     return logs
 
 if __name__ == "__main__":
+    token = get_token()
     batch = generate_logs(500)
-    response = requests.post(API_URL, json=batch)
+    response = requests.post(API_URL, json=batch, headers={"Authorization": f"Bearer {token}"})
     print(f"Status: {response.status_code}")
     print(f"Response: {response.json()}")
