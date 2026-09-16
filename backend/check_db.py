@@ -3,7 +3,6 @@ import os
 print("Raw DATABASE_URL:", repr(os.getenv("DATABASE_URL")))
 import sqlalchemy as sa
 
-
 conn = engine.connect()
 
 print("Tables:")

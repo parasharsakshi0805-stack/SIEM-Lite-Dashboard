@@ -27,15 +27,17 @@ const Login = ({ onLogin }) => {
       });
       localStorage.setItem('access_token', res.data.access_token);
       onLogin();
-     } catch (err) {
-  if (err.response && err.response.status === 401) {
-    setError('Incorrect username or password.');
-  } else if (err.response && err.response.status === 429) {
-    setError('Too many login attempts. Please wait a minute and try again.');
-  } else {
-    setError('Unable to reach the server. Is the backend running?');
-  }
-} finally {
+
+            navigate('/');
+    } catch (err) {
+      if (err.response && err.response.status === 401) {
+        setError('Incorrect username or password.');
+      } else if (err.response && err.response.status === 429) {
+        setError('Too many login attempts. Please wait a minute and try again.');
+      } else {
+        setError('Unable to reach the server. Is the backend running?');
+      }
+    } finally {
       setSubmitting(false);
     }
   };
