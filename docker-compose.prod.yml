@@ -1,0 +1,8 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: siem-frontend
+    ports:
+      - "80:80"
