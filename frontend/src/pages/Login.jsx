@@ -25,7 +25,7 @@ const Login = ({ onLogin }) => {
       const res = await api.post('/auth/login', body, {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       });
-      localStorage.setItem('access_token', res.data.access_token);
+      
       onLogin();
 
             navigate('/');

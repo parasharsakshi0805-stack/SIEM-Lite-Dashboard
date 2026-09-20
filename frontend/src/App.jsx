@@ -16,14 +16,19 @@ function App() {
   // Consider the user authenticated if a token is present. It might still
   // be expired — the first API call will 401, and api.js's interceptor
   // will clear it and redirect to /login automatically.
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    !!localStorage.getItem('access_token')
-  );
+const [isAuthenticated, setIsAuthenticated] = useState(false);
+const [checkingAuth, setCheckingAuth] = useState(true);
 
-  const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    setIsAuthenticated(false);
-  };
+useEffect(() => {
+  api.get('/auth/me')
+    .then(() => setIsAuthenticated(true))
+    .catch(() => setIsAuthenticated(false))
+    .finally(() => setCheckingAuth(false));
+}, []);
+
+const handleLogout = () => {
+  api.post('/auth/logout').finally(() => setIsAuthenticated(false));
+};
 
   useEffect(() => {
     // Only fetch data if authenticated
@@ -50,7 +55,7 @@ function App() {
       .finally(() => setLoading(false));
   }, [isAuthenticated]);
 
-  if (loading && !stats && isAuthenticated) {
+  if (checkingAuth || (loading && !stats && isAuthenticated))  {
     return (
       <div className="loading-container">
         <div className="spinner"></div>

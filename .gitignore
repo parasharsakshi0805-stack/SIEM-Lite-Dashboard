@@ -11,4 +11,3 @@ frontend/dist/
 # OS
 .DS_Store
 nextwork
-.env

@@ -1,4 +1,4 @@
-﻿from fastapi import FastAPI, Depends, Query, HTTPException, Request
+﻿from fastapi import FastAPI, Depends, Query, HTTPException, Request , Response
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
@@ -38,17 +38,29 @@ def health_check():
 
 @app.post("/auth/login", response_model=Token)
 @limiter.limit("5/minute")
-def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-
+def login(request: Request, response: Response, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = authenticate_user(db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=401,
             detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
         )
     access_token = create_access_token(data={"sub": user.username})
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=os.environ.get("COOKIE_SECURE", "false").lower() == "true",
+        samesite="lax",
+        max_age=60 * 60 * 8,
+        path="/",
+    )
     return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/auth/logout")
+def logout(response: Response):
+    response.delete_cookie("access_token", path="/")
+    return {"status": "logged out"}
 
 
 @app.get("/auth/me", response_model=UserOut)
