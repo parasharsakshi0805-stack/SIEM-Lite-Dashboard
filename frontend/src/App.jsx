@@ -11,6 +11,7 @@ import './App.css';
 function App() {
   const [stats, setStats] = useState(null);
   const [anomalies, setAnomalies] = useState([]);
+  const [timeline, setTimeline] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   // Consider the user authenticated if a token is present. It might still
@@ -40,12 +41,14 @@ const handleLogout = () => {
     setLoading(true);
     Promise.all([
       api.get('/logs/stats'),
-      api.get('/anomalies')
+      api.get('/anomalies'),
+      api.get('/logs/stats/timeline')
     ])
 
-      .then(([statsRes, anomaliesRes]) => {
+      .then(([statsRes, anomaliesRes, timelineRes]) => {
         setStats(statsRes.data);
         setAnomalies(anomaliesRes.data);
+        setTimeline(timelineRes.data);
         setError(null);
       })
       .catch((err) => {
@@ -90,7 +93,7 @@ const handleLogout = () => {
             />
             <Route 
               path="/" 
-              element={isAuthenticated ? <Overview stats={stats} /> : <Navigate to="/login" />} 
+              element={isAuthenticated ? <Overview stats={stats} timeline={timeline} /> : <Navigate to="/login" />}
             />
             <Route 
               path="/anomalies" 

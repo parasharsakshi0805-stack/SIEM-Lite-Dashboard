@@ -3,7 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 
 from database import SessionLocal, engine, Base, get_db
@@ -76,9 +76,13 @@ def ingest_log(log: LogCreate, current_user: User = Depends(get_current_user)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to queue log: {str(e)}")
 
-
 @app.post("/logs/ingest/batch")
 def ingest_logs_batch(logs: List[LogCreate], current_user: User = Depends(get_current_user)):
+    if len(logs) > 1000:
+        raise HTTPException(
+            status_code=413,
+            detail="Batch too large. Maximum 1000 logs per request.",
+        )
     try:
         pipe = redis_client.pipeline()
         for log in logs:
@@ -88,11 +92,10 @@ def ingest_logs_batch(logs: List[LogCreate], current_user: User = Depends(get_cu
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to queue logs: {str(e)}")
 
-
 @app.get("/logs", response_model=List[LogResponse])
 def get_logs(
     skip: int = 0,
-    limit: int = 50,
+    limit: int = Query(default=50, ge=1, le=500),
     severity: Optional[str] = None,
     event_type: Optional[str] = None,
     db: Session = Depends(get_db),
@@ -107,6 +110,7 @@ def get_logs(
     return logs
 
 
+@app.get("/logs/stats")
 @app.get("/logs/stats")
 def get_logs_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     severity_counts = (
@@ -129,15 +133,40 @@ def get_logs_stats(db: Session = Depends(get_db), current_user: User = Depends(g
         .all()
     )
 
+    total_logs = db.query(func.count(Log.id)).scalar()
+    total_anomalies = db.query(func.count(Anomaly.id)).scalar()
+    critical_count = db.query(func.count(Log.id)).filter(Log.severity == "critical").scalar()
+    unique_ips = db.query(func.count(func.distinct(Log.source_ip))).scalar()
+
     return {
         "severity_breakdown": [{"severity": s, "count": c} for s, c in severity_counts],
         "event_type_breakdown": [{"event_type": e, "count": c} for e, c in event_type_counts],
         "top_source_ips": [{"ip": ip, "count": c} for ip, c in top_ips],
+        "summary": {
+            "total_logs": total_logs,
+            "total_anomalies": total_anomalies,
+            "critical_count": critical_count,
+            "unique_ips": unique_ips,
+        },
     }
 
+@app.get("/logs/stats/timeline")
+def get_logs_timeline(hours: int = Query(default=24, ge=1, le=168), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    since = datetime.utcnow() - timedelta(hours=hours)
+    results = (
+        db.query(
+            func.date_trunc('hour', Log.timestamp).label('hour'),
+            func.count(Log.id).label('count')
+        )
+        .filter(Log.timestamp >= since)
+        .group_by('hour')
+        .order_by('hour')
+        .all()
+    )
+    return [{"hour": r.hour.isoformat(), "count": r.count} for r in results]
 
 @app.get("/anomalies")
-def get_anomalies(limit: int = 50, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_anomalies(limit: int = Query(default=50, ge=1, le=500), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     anomalies = db.query(Anomaly).order_by(desc(Anomaly.timestamp)).limit(limit).all()
     return [
         {
