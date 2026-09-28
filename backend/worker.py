@@ -58,7 +58,7 @@ def check_anomalies(db, logs):
             anomalies_found.append({
                 "log_id": None,
                 "source_ip": log["source_ip"],
-                "reason": f"{result['count']} events in {detector.window_seconds}s window (threshold {result['threshold']})",
+                "reason": f"Burst: {result['count']} '{log['event_type']}' events from {log['source_ip']} within {detector.window_seconds}s (limit {result['threshold']})",
                 "score": result["count"],
                 "source": "sliding_window",
             })
@@ -67,6 +67,22 @@ def check_anomalies(db, logs):
         db.bulk_insert_mappings(Anomaly, anomalies_found)
         db.commit()
         print(f"Flagged {len(anomalies_found)} sliding-window anomalies")
+
+def explain_ml_anomaly(feat, log):
+    factors = []
+    if feat["ip_event_count"] >= 5:
+        factors.append(f"{int(feat['ip_event_count'])} events from this IP in one batch")
+    if feat["hour"] < 6 or feat["hour"] >= 22:
+        factors.append(f"activity at an off-hours time ({int(feat['hour']):02d}:00 UTC)")
+    if feat["severity_encoded"] >= 2:
+        factors.append(f"{log['severity']} severity")
+    if feat["event_type_encoded"] == -1:
+        factors.append(f"event type '{log['event_type']}' never seen in training data")
+    elif feat["event_type_encoded"] in (2, 3):
+        factors.append(f"rare event type '{log['event_type']}'")
+    if not factors:
+        factors.append("unusual combination of hour, event type, severity and IP activity")
+    return "Unusual pattern: " + "; ".join(factors)
 
 def check_ml_anomalies(db, logs):
     df = pd.DataFrame(logs)
@@ -83,7 +99,7 @@ def check_ml_anomalies(db, logs):
             anomalies_found.append({
                 "log_id": None,
                 "source_ip": logs[i]["source_ip"],
-                "reason": "Flagged by Isolation Forest (unusual pattern)",
+                "reason": explain_ml_anomaly(features.iloc[i], logs[i]),
                 "score": int(scores[i] * -100),  # scaled for readability
                 "source": "ml",
             })

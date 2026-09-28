@@ -1,0 +1,1 @@
+﻿[{"source_ip":"1.2.3.4","event_type":"login_attempt","severity":"low","raw_message":"test","tenant_id":"default"}]

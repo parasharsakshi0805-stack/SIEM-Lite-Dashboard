@@ -41,7 +41,7 @@ const handleLogout = () => {
     setLoading(true);
     Promise.all([
       api.get('/logs/stats'),
-      api.get('/anomalies'),
+      api.get('/anomalies?limit=500'),
       api.get('/logs/stats/timeline')
     ])
 

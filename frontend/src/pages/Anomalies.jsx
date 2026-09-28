@@ -1,19 +1,53 @@
 export default function Anomalies({ anomalies }) {
+  const uniqueIps = new Set(anomalies.map((a) => a.source_ip)).size;
+  const latest = anomalies.length > 0 ? new Date(anomalies[0].timestamp).toLocaleString() : '—';
+  const ranked = [...anomalies].sort((a, b) => b.score - a.score);
+
+  const stats = [
+    { label: 'Total anomalies', value: anomalies.length, color: '#FF3366' },
+    { label: 'Unique source IPs', value: uniqueIps, color: '#00E5FF' },
+    { label: 'Most recent', value: latest, color: '#F8FAFC', small: true },
+  ];
+
   return (
     <div className="page-content animation-fade-in">
       <div className="dashboard-header">
         <h1 className="dashboard-title">Active Anomalies</h1>
       </div>
 
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gap: '16px',
+          marginBottom: '20px',
+        }}
+      >
+        {stats.map((s) => (
+          <div key={s.label} className="card" style={{ borderColor: `${s.color}44` }}>
+            <div style={{ fontSize: '1rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>{s.label}</div>
+            <div
+              style={{
+                fontSize: s.small ? '1.3rem' : '3rem',
+                fontWeight: 700,
+                color: s.color,
+                lineHeight: 1.1,
+              }}
+            >
+              {s.value}
+            </div>
+          </div>
+        ))}
+      </div>
+
       <div className="tables-grid">
         <div className="card" style={{ borderColor: anomalies.length > 0 ? 'rgba(255, 0, 60, 0.4)' : '' }}>
           <h2 className="card-title" style={{ color: anomalies.length > 0 ? '#FFB3B3' : '' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-            Active Anomalies ({anomalies.length})
+            Anomalies ({anomalies.length})
           </h2>
-          
+
           {anomalies.length === 0 ? (
-            <p style={{ color: 'var(--text-secondary)' }}>No anomalies detected at this time.</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '1rem' }}>No anomalies detected at this time.</p>
           ) : (
             <div className="data-table-container">
               <table className="data-table">
@@ -21,13 +55,12 @@ export default function Anomalies({ anomalies }) {
                   <tr>
                     <th>Timestamp</th>
                     <th>Source IP</th>
-                    <th>Reason</th>
+                    <th>Why it was flagged</th>
                     <th>Score</th>
-                    <th>Detector</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {anomalies.map((a) => (
+                  {ranked.map((a) => (
                     <tr key={a.id}>
                       <td style={{ color: 'var(--text-secondary)' }}>{new Date(a.timestamp).toLocaleString()}</td>
                       <td style={{ fontFamily: 'monospace', color: '#00E5FF' }}>{a.source_ip}</td>
@@ -35,7 +68,6 @@ export default function Anomalies({ anomalies }) {
                       <td>
                         <span className="badge badge-critical">{a.score}</span>
                       </td>
-                      <td>{a.source}</td>
                     </tr>
                   ))}
                 </tbody>

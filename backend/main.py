@@ -11,7 +11,7 @@ from schemas import LogCreate, LogResponse, Token, UserOut
 from redis_client import redis_client
 from fastapi.middleware.cors import CORSMiddleware
 from models import Log, Anomaly, User
-from auth import authenticate_user, create_access_token, get_current_user
+from auth import authenticate_user, create_access_token, get_current_user,verify_agent_key
 
 import os
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -78,6 +78,27 @@ def ingest_log(log: LogCreate, current_user: User = Depends(get_current_user)):
 
 @app.post("/logs/ingest/batch")
 def ingest_logs_batch(logs: List[LogCreate], current_user: User = Depends(get_current_user)):
+    if len(logs) > 1000:
+        raise HTTPException(
+            status_code=413,
+            detail="Batch too large. Maximum 1000 logs per request.",
+        )
+    try:
+        pipe = redis_client.pipeline()
+        for log in logs:
+            pipe.rpush("log_queue", json.dumps(log.model_dump()))
+        pipe.execute()
+        return {"status": "queued", "count": len(logs)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to queue logs: {str(e)}")
+
+@app.post("/agents/ingest/batch")
+def agent_ingest_logs_batch(logs: List[LogCreate], _: bool = Depends(verify_agent_key)):
+    """
+    Same job as /logs/ingest/batch, but for machine agents instead of a
+    logged-in browser session. Auth is a static API key (X-API-Key header)
+    instead of a session cookie -- see auth.verify_agent_key for why.
+    """
     if len(logs) > 1000:
         raise HTTPException(
             status_code=413,

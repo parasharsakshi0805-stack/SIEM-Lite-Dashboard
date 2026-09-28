@@ -2,7 +2,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status, Request
+from fastapi import Depends, HTTPException, status, Request, Header
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
@@ -64,3 +64,19 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     if user is None or not user.is_active:
         raise credentials_exception
     return user
+
+AGENT_API_KEY = os.getenv("AGENT_API_KEY")
+
+
+def verify_agent_key(x_api_key: str = Header(default=None)) -> bool:
+    if not AGENT_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="AGENT_API_KEY is not configured on the server",
+        )
+    if not x_api_key or x_api_key != AGENT_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing agent API key",
+        )
+    return True
