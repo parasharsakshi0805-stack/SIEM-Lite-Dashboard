@@ -66,9 +66,9 @@ In production, the React frontend is compiled to static assets and served by ngi
 
 ## Screenshots
 
-![Dashboard overview](docs/screenshots/dashboard-overview.png)
-![Anomalies detected](docs/screenshots/anomalies-detected.png)
-![System Logs](docs/screenshots/system-logs.png)
+![Dashboard overview](docs/screenshots/dashboard_overview.png,docs/screenshots/overview_2.png,docs/screenshots/overview3.png)
+![Anomalies detected](docs/screenshots/anomalies.png)
+![System Logs](docs/screenshots/systemlogs.png)
 
 ## Configuration
 
