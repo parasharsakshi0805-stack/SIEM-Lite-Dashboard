@@ -66,17 +66,16 @@ In production, the React frontend is compiled to static assets and served by ngi
 
 ## Screenshots
 
-## Screenshots
 
-![Dashboard overview](./docs/screenshots/dashboard_overview.png)
+![Dashboard overview](docs/screenshots/dashboard_overview.png)
 
-![Dashboard overview 2](./docs/screenshots/overview_2.png)
+![Dashboard overview 2](docs/screenshots/overview_2.png)
 
-![Dashboard overview 3](./docs/screenshots/overview3.png)
+![Dashboard overview 3](docs/screenshots/overview3.png)
 
-![Anomalies detected](./docs/screenshots/anomalies.png)
+![Anomalies detected](docs/screenshots/anomalies.png)
 
-![System Logs](./docs/screenshots/systemlogs.png)
+![System Logs](docs/screenshots/systemlogs.png)
 ## Configuration
 
 This project requires two local `.env` files — one in the project root and one in `backend/` — to hold database, cache, and signing-key configuration. Neither is included in this repository, and neither should ever be committed; both are excluded via `.gitignore`.
