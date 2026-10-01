@@ -11,3 +11,11 @@ frontend/dist/
 # OS
 .DS_Store
 nextwork
+
+
+# Files that change every time you run things (not source code)
+agent/agent_state.json
+agent/demo_auth.log
+*.log
+backend/pyvenv.cfg
+.pytest_cache/
