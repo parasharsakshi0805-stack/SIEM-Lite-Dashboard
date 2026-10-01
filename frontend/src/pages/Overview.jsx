@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Sector, LineChart, Line, CartesianGrid } from 'recharts';
 
-const COLORS = ['#00E5FF', '#F5A623', '#FF3366', '#FF003C'];
+// Colours are tied to the severity NAME, so 'critical' is always the same colour.
+const SEVERITY_COLORS = { low: '#00E5FF', medium: '#F5A623', high: '#FF3366', critical: '#FF003C' };
+const SEVERITY_ORDER = ['low', 'medium', 'high', 'critical'];
+const sortBySeverity = (rows = []) =>
+  [...rows].sort((a, b) => SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity));
 
 const tooltipStyle = {
   contentStyle: { backgroundColor: 'rgba(15, 15, 25, 0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', backdropFilter: 'blur(8px)' },
@@ -70,7 +74,7 @@ export default function Overview({ stats, timeline }) {
           <ResponsiveContainer width="100%" height={340}>
             <PieChart aria-label="Severity Breakdown Chart">
               <Pie
-                data={stats.severity_breakdown}
+                data={sortBySeverity(stats.severity_breakdown)}
                 dataKey="count"
                 nameKey="severity"
                 cx="50%"
@@ -81,8 +85,8 @@ export default function Overview({ stats, timeline }) {
                 activeShape={renderActiveShape}
                 onMouseEnter={(_, index) => setActiveIndex(index)}
               >
-                {stats.severity_breakdown.map((entry, index) => (
-                  <Cell key={entry.severity} fill={COLORS[index % COLORS.length]} style={{ cursor: 'pointer' }} />
+               {sortBySeverity(stats.severity_breakdown).map((entry) => (
+                  <Cell key={entry.severity} fill={SEVERITY_COLORS[entry.severity] || '#94A3B8'} style={{ cursor: 'pointer' }} />
                 ))}
               </Pie>
               <Legend wrapperStyle={{ color: '#94A3B8', fontSize: 13 }} />

@@ -11,7 +11,7 @@ from detector import SlidingWindowDetector
 from ml_features import extract_features
 
 BATCH_SIZE = 50
-FLUSH_INTERVAL = 5  # seconds
+FLUSH_INTERVAL = 1  # seconds
 MODEL_PATH = "isolation_forest_model.joblib"
 
 detector = SlidingWindowDetector(window_seconds=60, threshold=10)
@@ -41,6 +41,7 @@ def flush_batch():
             check_anomalies(db, logs_to_insert)
             if ml_model is not None:
                 check_ml_anomalies(db, logs_to_insert)
+        return len(logs_to_insert)
     finally:
         db.close()
 
@@ -87,7 +88,7 @@ def explain_ml_anomaly(feat, log):
 def check_ml_anomalies(db, logs):
     df = pd.DataFrame(logs)
     df["id"] = range(len(df))  # dummy id for grouping within this batch
-    df["timestamp"] = pd.Timestamp.utcnow()
+    df["timestamp"] = pd.Timestamp.now(tz="UTC")
 
     features = extract_features(df)
     predictions = ml_model.predict(features)  # -1 = anomaly, 1 = normal
@@ -110,7 +111,12 @@ def check_ml_anomalies(db, logs):
         print(f"Flagged {len(anomalies_found)} ML anomalies")
 
 if __name__ == "__main__":
-    print("Worker started. Flushing every", FLUSH_INTERVAL, "seconds...")
+    print(f"Worker started. Draining the queue; waiting {FLUSH_INTERVAL}s whenever it is empty...")
     while True:
-        flush_batch()
-        time.sleep(FLUSH_INTERVAL)
+        try:
+            processed = flush_batch()
+        except Exception as exc:  # keep the worker alive on a temporary database/Redis problem
+            print(f"Worker error (will retry): {exc}")
+            processed = 0
+        if processed == 0:
+            time.sleep(FLUSH_INTERVAL)

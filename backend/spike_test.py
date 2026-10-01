@@ -1,7 +1,7 @@
 ﻿import requests
-import random
 
-API_URL = "http://127.0.0.1:8000/logs/ingest/batch"
+from seed_data import login_session, API_URL
+
 
 def generate_spike(ip="66.66.66.66", n=30):
     logs = []
@@ -15,8 +15,11 @@ def generate_spike(ip="66.66.66.66", n=30):
         })
     return logs
 
+
 if __name__ == "__main__":
+    session = login_session()
     batch = generate_spike()
-    response = requests.post(API_URL, json=batch)
+    response = session.post(API_URL, json=batch)
     print(f"Status: {response.status_code}")
     print(f"Response: {response.json()}")
+    print("Within a few seconds the sliding-window detector should flag 66.66.66.66 on the Anomalies page.")

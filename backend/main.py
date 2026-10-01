@@ -132,7 +132,7 @@ def get_logs(
 
 
 @app.get("/logs/stats")
-@app.get("/logs/stats")
+
 def get_logs_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     severity_counts = (
         db.query(Log.severity, func.count(Log.id))
