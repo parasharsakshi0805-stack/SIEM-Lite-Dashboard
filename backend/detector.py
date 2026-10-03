@@ -1,4 +1,4 @@
-﻿from collections import deque
+from collections import deque
 from datetime import datetime, timedelta
 
 WINDOW_SECONDS = 60
@@ -8,7 +8,7 @@ class SlidingWindowDetector:
     def __init__(self, window_seconds=WINDOW_SECONDS, threshold=THRESHOLD):
         self.window_seconds = window_seconds
         self.threshold = threshold
-        self.ip_windows = {}  # source_ip -> deque of timestamps
+        self.ip_windows = {}  # source_ip -> deque of timestamps (kept sorted, oldest first)
         self.alerted_ips = set()  # IPs currently in an alerted state
 
     def _evict_old(self, dq, now):
@@ -23,8 +23,26 @@ class SlidingWindowDetector:
             self.ip_windows[source_ip] = deque()
 
         dq = self.ip_windows[source_ip]
-        self._evict_old(dq, now)
-        dq.append(now)
+
+        # NEW: logs can arrive late or out of order (an agent was offline and is
+        # catching up). The old code just appended them, so a log from days ago
+        # sat in the window next to a log from now and the count came out too big.
+        # "newest" = the latest time we have seen for this IP; the window is
+        # measured back from THAT, not from whichever log happened to arrive last.
+        newest = max(now, dq[-1]) if dq else now
+
+        if now < newest - timedelta(seconds=self.window_seconds):
+            # Too old to belong to the current window: it cannot cause or join a
+            # burst. Count it as a lone event and leave all state untouched.
+            return {"is_anomaly": False, "count": 1, "threshold": self.threshold}
+
+        if dq and now < dq[-1]:
+            # Slightly late: put it in its correct place so the deque stays sorted.
+            dq = deque(sorted([*dq, now]))
+            self.ip_windows[source_ip] = dq
+        else:
+            dq.append(now)                      # normal case: newest on the right
+        self._evict_old(dq, newest)
 
         count = len(dq)
         over_threshold = count > self.threshold

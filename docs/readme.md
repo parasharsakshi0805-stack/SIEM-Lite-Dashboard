@@ -69,7 +69,7 @@ In production, the React frontend is compiled to static assets and served by ngi
 
 ![Dashboard overview](docs/screenshots/dashboard_overview.png)
 
-![Dashboard overview 2](docs/screenshots/overview_2.png)
+![Dashboard overview 2](C:\impp\SEIM-Lite-Dashboard\docs\screenshots\overview_2.png)
 
 ![Dashboard overview 3](docs/screenshots/overview3.png)
 

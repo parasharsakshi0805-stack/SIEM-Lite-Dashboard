@@ -19,3 +19,4 @@ agent/demo_auth.log
 *.log
 backend/pyvenv.cfg
 .pytest_cache/
+*.joblib

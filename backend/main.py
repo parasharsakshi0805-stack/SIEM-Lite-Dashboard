@@ -1,14 +1,14 @@
-﻿from fastapi import FastAPI, Depends, Query, HTTPException, Request , Response
+from fastapi import FastAPI, Depends, Query, HTTPException, Request , Response
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 from typing import List, Optional
 from datetime import datetime, timedelta
-import json
 
 from database import SessionLocal, engine, Base, get_db
 from schemas import LogCreate, LogResponse, Token, UserOut
 from redis_client import redis_client
+import log_queue
 from fastapi.middleware.cors import CORSMiddleware
 from models import Log, Anomaly, User
 from auth import authenticate_user, create_access_token, get_current_user,verify_agent_key
@@ -31,6 +31,23 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
 )
+
+def queue_logs(logs: List[LogCreate]):
+    """
+    ONE place that puts logs on the queue (was copy-pasted in three endpoints).
+    - queue full  -> HTTP 503 + Retry-After, so agents back off instead of losing data
+    - anything else -> HTTP 500 (same behaviour as before)
+    """
+    try:
+        log_queue.enqueue(redis_client, logs)
+    except log_queue.QueueFull:
+        raise HTTPException(
+            status_code=503,
+            detail="Ingest queue is full. Retry shortly.",
+            headers={"Retry-After": "5"},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to queue logs: {str(e)}")
 
 @app.get("/health")
 def health_check():
@@ -70,11 +87,8 @@ def read_me(current_user: User = Depends(get_current_user)):
 
 @app.post("/logs/ingest")
 def ingest_log(log: LogCreate, current_user: User = Depends(get_current_user)):
-    try:
-        redis_client.rpush("log_queue", json.dumps(log.model_dump()))
-        return {"status": "queued"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to queue log: {str(e)}")
+    queue_logs([log])
+    return {"status": "queued"}
 
 @app.post("/logs/ingest/batch")
 def ingest_logs_batch(logs: List[LogCreate], current_user: User = Depends(get_current_user)):
@@ -83,14 +97,8 @@ def ingest_logs_batch(logs: List[LogCreate], current_user: User = Depends(get_cu
             status_code=413,
             detail="Batch too large. Maximum 1000 logs per request.",
         )
-    try:
-        pipe = redis_client.pipeline()
-        for log in logs:
-            pipe.rpush("log_queue", json.dumps(log.model_dump()))
-        pipe.execute()
-        return {"status": "queued", "count": len(logs)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to queue logs: {str(e)}")
+    queue_logs(logs)
+    return {"status": "queued", "count": len(logs)}
 
 @app.post("/agents/ingest/batch")
 def agent_ingest_logs_batch(logs: List[LogCreate], _: bool = Depends(verify_agent_key)):
@@ -104,14 +112,8 @@ def agent_ingest_logs_batch(logs: List[LogCreate], _: bool = Depends(verify_agen
             status_code=413,
             detail="Batch too large. Maximum 1000 logs per request.",
         )
-    try:
-        pipe = redis_client.pipeline()
-        for log in logs:
-            pipe.rpush("log_queue", json.dumps(log.model_dump()))
-        pipe.execute()
-        return {"status": "queued", "count": len(logs)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to queue logs: {str(e)}")
+    queue_logs(logs)
+    return {"status": "queued", "count": len(logs)}
 
 @app.get("/logs", response_model=List[LogResponse])
 def get_logs(
@@ -192,10 +194,13 @@ def get_anomalies(limit: int = Query(default=50, ge=1, le=500), db: Session = De
     return [
         {
             "id": a.id,
+            "log_id": a.log_id,
             "source_ip": a.source_ip,
             "reason": a.reason,
             "score": a.score,
             "source": a.source,
+            "severity": a.severity,     # NEW
+            "details": a.details,       # NEW: the evidence + "next steps"
             "timestamp": a.timestamp,
         }
         for a in anomalies

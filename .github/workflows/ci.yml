@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  backend-tests:
+  tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,8 +21,12 @@ jobs:
         working-directory: ./backend
         run: |
           pip install -r requirements.txt
-          pip install pytest
+          pip install pytest fakeredis
 
-      - name: Run tests
+      - name: Backend tests
         working-directory: ./backend
+        run: python -m pytest -v
+
+      - name: Agent tests
+        working-directory: ./agent
         run: python -m pytest -v
